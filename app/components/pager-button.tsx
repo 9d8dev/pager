@@ -1,5 +1,6 @@
+import { sendNotification } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 
 export const PagerButton = () => {
-  return <Button>Page Me!</Button>;
+  return <Button onClick={sendNotification}>Page Me!</Button>;
 };
