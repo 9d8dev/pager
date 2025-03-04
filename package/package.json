@@ -2,16 +2,31 @@
   "name": "pager",
   "version": "1.0.0",
   "description": "Developer-first notification system for TypeScript applications",
-  "main": "src/index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/9d8dev/pager.git"
   },
   "keywords": [
-    "notifications"
+    "notifications",
+    "react",
+    "nextjs",
+    "typescript"
   ],
   "author": "9d8",
   "license": "ISC",
@@ -19,7 +34,24 @@
     "url": "https://github.com/9d8dev/pager/issues"
   },
   "homepage": "https://github.com/9d8dev/pager#readme",
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "next": ">=13.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.5"
+  },
   "devDependencies": {
-    "typescript": "^5.8.2"
+    "@types/node": "^20.11.19",
+    "@types/react": "^18.2.57",
+    "@typescript-eslint/eslint-plugin": "^7.0.1",
+    "@typescript-eslint/parser": "^7.0.1",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.2.5",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.3"
   }
 }
