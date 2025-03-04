@@ -44,6 +44,19 @@ try {
  *
  * // With both config and options
  * const response = await page('Message', { apiKey: 'key' }, { priority: 'high' });
+ *
+ * // Error handling
+ * try {
+ *   const response = await page('Important notification');
+ *   if (response.success) {
+ *     console.log('Notification sent successfully');
+ *   } else {
+ *     console.warn('Failed to send notification:', response.error);
+ *   }
+ * } catch (error) {
+ *   // This will only happen for network failures or other critical errors
+ *   console.error('Critical error sending notification:', error);
+ * }
  */
 export async function page(
   message: string,
@@ -91,6 +104,9 @@ export async function page(
     process.env.PAGER_DEBUG === "true" ||
     false;
 
+  // Create a timestamp for this notification attempt
+  const timestamp = new Date().toISOString();
+
   try {
     // Debug logging if enabled
     if (debug) {
@@ -106,78 +122,97 @@ export async function page(
     const payload: PagerNotificationPayload = {
       message,
       ...notificationOptions,
-      timestamp: new Date().toISOString(),
+      timestamp,
     };
 
-    // Make the API call
-    const response = await fetch(backendUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
-      },
-      body: JSON.stringify(payload),
-    });
-
-    // Handle errors
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText);
-
-      if (debug) {
-        console.error("[Pager] Error response:", errorText);
-      }
-
-      const errorResponse: PagerNotificationResponse = {
-        success: false,
-        error: `Failed to send notification: ${errorText}`,
-        timestamp: new Date().toISOString(),
-      };
-
-      throw Object.assign(
-        new Error(`Failed to send notification: ${errorText}`),
-        { response: errorResponse }
-      );
-    }
-
-    // Parse the response
-    let responseData: PagerNotificationResponse;
+    // Make the API call with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     try {
-      // Try to parse the response as JSON
-      responseData = await response.json();
-    } catch (e) {
-      // If the response is not JSON, create a default success response
-      responseData = {
-        success: true,
-        timestamp: new Date().toISOString(),
-      };
-    }
+      const response = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
 
-    // Success logging if debug is enabled
-    if (debug) {
-      console.log("[Pager] Notification sent successfully:", responseData);
-    }
+      clearTimeout(timeoutId);
 
-    return responseData;
+      // Handle errors
+      if (!response.ok) {
+        const errorText = await response
+          .text()
+          .catch(() => response.statusText);
+
+        if (debug) {
+          console.error("[Pager] Error response:", errorText);
+        }
+
+        const errorResponse: PagerNotificationResponse = {
+          success: false,
+          error: `Failed to send notification: ${errorText}`,
+          timestamp,
+        };
+
+        // Log the error but don't throw, just return the error response
+        console.warn("[Pager] Notification failed:", errorResponse.error);
+        return errorResponse;
+      }
+
+      // Parse the response
+      let responseData: PagerNotificationResponse;
+
+      try {
+        // Try to parse the response as JSON
+        responseData = await response.json();
+      } catch (e) {
+        // If the response is not JSON, create a default success response
+        responseData = {
+          success: true,
+          timestamp,
+        };
+      }
+
+      // Success logging if debug is enabled
+      if (debug) {
+        console.log("[Pager] Notification sent successfully:", responseData);
+      }
+
+      return responseData;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError; // Re-throw to be caught by the outer try/catch
+    }
   } catch (error) {
-    console.error("[Pager] Error sending notification:", error);
+    // Determine if this is a timeout error
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+    const errorMessage = isTimeout
+      ? "Notification request timed out after 10 seconds"
+      : error instanceof Error
+        ? error.message
+        : String(error);
 
-    // If the error already has a response object (from our throw above), use it
-    if (error instanceof Error && "response" in error) {
-      return (error as any).response;
+    // Log the error
+    console.warn("[Pager] Error sending notification:", errorMessage);
+
+    if (debug) {
+      console.error("[Pager] Error details:", error);
     }
 
-    // Otherwise, create a generic error response
+    // Create a structured error response
     const errorResponse: PagerNotificationResponse = {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
+      error: errorMessage,
+      timestamp,
     };
 
-    throw Object.assign(
-      error instanceof Error ? error : new Error(String(error)),
-      { response: errorResponse }
-    );
+    // Return the error response instead of throwing
+    // This prevents the app from crashing due to notification failures
+    return errorResponse;
   }
 }
 

@@ -88,6 +88,9 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
       message: string,
       options: PagerNotificationOptions = {}
     ): Promise<PagerNotificationResponse> => {
+      // Create a timestamp for this notification attempt
+      const timestamp = new Date().toISOString();
+
       try {
         if (resolvedConfig.debug) {
           console.log("[Pager] Sending notification:", message, options);
@@ -97,84 +100,105 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
         const payload: PagerNotificationPayload = {
           message,
           ...options,
-          timestamp: new Date().toISOString(),
+          timestamp,
         };
 
         // Make sure backendUrl is not undefined
         const url = resolvedConfig.backendUrl || "/api/notifications";
 
-        // Make the API call
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(resolvedConfig.apiKey && {
-              Authorization: `Bearer ${resolvedConfig.apiKey}`,
-            }),
-          },
-          body: JSON.stringify(payload),
-        });
-
-        // Handle errors
-        if (!response.ok) {
-          const errorText = await response
-            .text()
-            .catch(() => response.statusText);
-
-          if (resolvedConfig.debug) {
-            console.error("[Pager] Error response:", errorText);
-          }
-
-          const errorResponse: PagerNotificationResponse = {
-            success: false,
-            error: `Failed to send notification: ${errorText}`,
-            timestamp: new Date().toISOString(),
-          };
-
-          throw Object.assign(
-            new Error(`Failed to send notification: ${errorText}`),
-            { response: errorResponse }
-          );
-        }
-
-        // Parse the response
-        let responseData: PagerNotificationResponse;
+        // Make the API call with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
         try {
-          // Try to parse the response as JSON
-          responseData = await response.json();
-        } catch (e) {
-          // If the response is not JSON, create a default success response
-          responseData = {
-            success: true,
-            timestamp: new Date().toISOString(),
-          };
+          // Make the API call
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(resolvedConfig.apiKey && {
+                Authorization: `Bearer ${resolvedConfig.apiKey}`,
+              }),
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          // Handle errors
+          if (!response.ok) {
+            const errorText = await response
+              .text()
+              .catch(() => response.statusText);
+
+            if (resolvedConfig.debug) {
+              console.error("[Pager] Error response:", errorText);
+            }
+
+            const errorResponse: PagerNotificationResponse = {
+              success: false,
+              error: `Failed to send notification: ${errorText}`,
+              timestamp,
+            };
+
+            // Log the error but don't throw, just return the error response
+            console.warn("[Pager] Notification failed:", errorResponse.error);
+            return errorResponse;
+          }
+
+          // Parse the response
+          let responseData: PagerNotificationResponse;
+
+          try {
+            // Try to parse the response as JSON
+            responseData = await response.json();
+          } catch (e) {
+            // If the response is not JSON, create a default success response
+            responseData = {
+              success: true,
+              timestamp,
+            };
+          }
+
+          if (resolvedConfig.debug) {
+            console.log(
+              "[Pager] Notification sent successfully:",
+              responseData
+            );
+          }
+
+          return responseData;
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError; // Re-throw to be caught by the outer try/catch
         }
+      } catch (error) {
+        // Determine if this is a timeout error
+        const isTimeout = error instanceof Error && error.name === "AbortError";
+        const errorMessage = isTimeout
+          ? "Notification request timed out after 10 seconds"
+          : error instanceof Error
+            ? error.message
+            : String(error);
+
+        // Log the error
+        console.warn("[Pager] Error sending notification:", errorMessage);
 
         if (resolvedConfig.debug) {
-          console.log("[Pager] Notification sent successfully:", responseData);
+          console.error("[Pager] Error details:", error);
         }
 
-        return responseData;
-      } catch (error) {
-        console.error("[Pager] Error sending notification:", error);
-
-        // If the error already has a response object (from our throw above), use it
-        if (error instanceof Error && "response" in error) {
-          return (error as any).response;
-        }
-
-        // Otherwise, create a generic error response
+        // Create a structured error response
         const errorResponse: PagerNotificationResponse = {
           success: false,
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString(),
+          error: errorMessage,
+          timestamp,
         };
 
-        throw Object.assign(
-          error instanceof Error ? error : new Error(String(error)),
-          { response: errorResponse }
-        );
+        // Return the error response instead of throwing
+        // This prevents the app from crashing due to notification failures
+        return errorResponse;
       }
     };
   }, [resolvedConfig]);
