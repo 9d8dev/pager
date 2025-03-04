@@ -1,4 +1,9 @@
-import { PagerConfig } from "./context";
+import {
+  PagerConfig,
+  PagerNotificationOptions,
+  PagerNotificationResponse,
+  PagerNotificationPayload,
+} from "./types";
 
 // Try to load dotenv in Node.js environments
 try {
@@ -19,44 +24,46 @@ try {
  * or standalone with explicit configuration.
  *
  * @param message - The notification message to send
- * @param config - Optional configuration to override environment variables
- * @param options - Additional options for the notification
- * @returns A promise that resolves when the notification is sent
+ * @param configOrOptions - Optional configuration or notification options
+ * @param options - Additional options for the notification (if first param is config)
+ * @returns A promise that resolves with the notification response
  *
  * @example
  * // Basic usage
- * await page('User signed up!');
+ * const response = await page('User signed up!');
+ * console.log(response.success); // true
  *
  * // With priority
- * await page('Critical error occurred!', { priority: 'high' });
+ * const response = await page('Critical error occurred!', { priority: 'high' });
  *
  * // With custom configuration
- * await page('Database backup completed', {
+ * const response = await page('Database backup completed', {
  *   apiKey: 'custom-api-key',
  *   backendUrl: 'https://custom-endpoint.com/api'
  * });
+ *
+ * // With both config and options
+ * const response = await page('Message', { apiKey: 'key' }, { priority: 'high' });
  */
 export async function page(
   message: string,
-  configOrOptions?:
-    | Partial<PagerConfig>
-    | { priority?: "low" | "medium" | "high" },
-  options?: { priority?: "low" | "medium" | "high" }
-): Promise<void> {
+  configOrOptions?: Partial<PagerConfig> | PagerNotificationOptions,
+  options?: PagerNotificationOptions
+): Promise<PagerNotificationResponse> {
   // Handle overloaded function signature
   let config: Partial<PagerConfig> = {};
-  let notificationOptions = options || {};
+  let notificationOptions: PagerNotificationOptions = options || {};
 
   // Check if first optional parameter is config or options
   if (configOrOptions) {
     if (
-      "priority" in configOrOptions &&
-      Object.keys(configOrOptions).length === 1
+      "priority" in configOrOptions ||
+      "category" in configOrOptions ||
+      "tags" in configOrOptions ||
+      "metadata" in configOrOptions
     ) {
       // It's options
-      notificationOptions = configOrOptions as {
-        priority?: "low" | "medium" | "high";
-      };
+      notificationOptions = configOrOptions as PagerNotificationOptions;
     } else {
       // It's config
       config = configOrOptions as Partial<PagerConfig>;
@@ -95,6 +102,13 @@ export async function page(
       console.log("[Pager] Using backend URL:", backendUrl);
     }
 
+    // Prepare the payload
+    const payload: PagerNotificationPayload = {
+      message,
+      ...notificationOptions,
+      timestamp: new Date().toISOString(),
+    };
+
     // Make the API call
     const response = await fetch(backendUrl, {
       method: "POST",
@@ -102,64 +116,72 @@ export async function page(
         "Content-Type": "application/json",
         ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
       },
-      body: JSON.stringify({
-        message,
-        ...notificationOptions,
-        timestamp: new Date().toISOString(),
-      }),
+      body: JSON.stringify(payload),
     });
 
     // Handle errors
     if (!response.ok) {
       const errorText = await response.text().catch(() => response.statusText);
-      throw new Error(`Failed to send notification: ${errorText}`);
+
+      if (debug) {
+        console.error("[Pager] Error response:", errorText);
+      }
+
+      const errorResponse: PagerNotificationResponse = {
+        success: false,
+        error: `Failed to send notification: ${errorText}`,
+        timestamp: new Date().toISOString(),
+      };
+
+      throw Object.assign(
+        new Error(`Failed to send notification: ${errorText}`),
+        { response: errorResponse }
+      );
+    }
+
+    // Parse the response
+    let responseData: PagerNotificationResponse;
+
+    try {
+      // Try to parse the response as JSON
+      responseData = await response.json();
+    } catch (e) {
+      // If the response is not JSON, create a default success response
+      responseData = {
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
     }
 
     // Success logging if debug is enabled
     if (debug) {
-      console.log("[Pager] Notification sent successfully");
+      console.log("[Pager] Notification sent successfully:", responseData);
     }
+
+    return responseData;
   } catch (error) {
     console.error("[Pager] Error sending notification:", error);
-    throw error;
+
+    // If the error already has a response object (from our throw above), use it
+    if (error instanceof Error && "response" in error) {
+      return (error as any).response;
+    }
+
+    // Otherwise, create a generic error response
+    const errorResponse: PagerNotificationResponse = {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+    };
+
+    throw Object.assign(
+      error instanceof Error ? error : new Error(String(error)),
+      { response: errorResponse }
+    );
   }
 }
 
-// Export everything from context and provider
+// Export everything
 export * from "./context";
 export * from "./provider";
-
-// Example usage:
-/*
-// In your Next.js app:
-import { PagerProvider, usePager, page } from 'pager';
-
-// 1. Wrap your app with the provider (in app layout or _app.js)
-function App() {
-  return (
-    <PagerProvider config={{
-      // Optional: Override environment variables
-      apiKey: 'your-api-key',
-      backendUrl: 'your-backend-url',
-      debug: true
-    }}>
-      <YourApp />
-    </PagerProvider>
-  );
-}
-
-// 2. Use the hook in your components
-function YourComponent() {
-  const { page } = usePager();
-
-  const handleClick = async () => {
-    await page('Something happened!', { priority: 'high' });
-  };
-
-  return <button onClick={handleClick}>Send Notification</button>;
-}
-
-// 3. Or use the standalone function anywhere
-// This will use environment variables if config is not provided
-await page('Something happened outside of React!', { apiKey: 'optional-override' });
-*/
+export * from "./types";

@@ -1,10 +1,26 @@
 "use client";
 
 import { ReactNode, useMemo, useEffect } from "react";
-import { PagerContext, PagerConfig } from "./context";
+import { PagerContext } from "./context";
+import {
+  PagerConfig,
+  PagerNotificationOptions,
+  PagerNotificationResponse,
+  PagerNotificationPayload,
+} from "./types";
 
+/**
+ * Props for the PagerProvider component
+ */
 interface PagerProviderProps {
+  /**
+   * Child components that will have access to the Pager context
+   */
   children: ReactNode;
+
+  /**
+   * Configuration options for the Pager system
+   */
   config?: Partial<PagerConfig>;
 }
 
@@ -31,7 +47,7 @@ interface PagerProviderProps {
  */
 export function PagerProvider({ children, config = {} }: PagerProviderProps) {
   // Combine props with environment variables, with props taking precedence
-  const resolvedConfig = useMemo(() => {
+  const resolvedConfig = useMemo<PagerConfig>(() => {
     return {
       apiKey: config.apiKey || process.env.NEXT_PUBLIC_PAGER_API_KEY || "",
       backendUrl:
@@ -68,13 +84,27 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
 
   // Create the page function
   const page = useMemo(() => {
-    return async (message: string, options = {}) => {
+    return async (
+      message: string,
+      options: PagerNotificationOptions = {}
+    ): Promise<PagerNotificationResponse> => {
       try {
         if (resolvedConfig.debug) {
           console.log("[Pager] Sending notification:", message, options);
         }
 
-        const response = await fetch(resolvedConfig.backendUrl, {
+        // Prepare the payload
+        const payload: PagerNotificationPayload = {
+          message,
+          ...options,
+          timestamp: new Date().toISOString(),
+        };
+
+        // Make sure backendUrl is not undefined
+        const url = resolvedConfig.backendUrl || "/api/notifications";
+
+        // Make the API call
+        const response = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -82,28 +112,69 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
               Authorization: `Bearer ${resolvedConfig.apiKey}`,
             }),
           },
-          body: JSON.stringify({
-            message,
-            ...options,
-            timestamp: new Date().toISOString(),
-          }),
+          body: JSON.stringify(payload),
         });
 
+        // Handle errors
         if (!response.ok) {
           const errorText = await response
             .text()
             .catch(() => response.statusText);
-          throw new Error(`Failed to send notification: ${errorText}`);
+
+          if (resolvedConfig.debug) {
+            console.error("[Pager] Error response:", errorText);
+          }
+
+          const errorResponse: PagerNotificationResponse = {
+            success: false,
+            error: `Failed to send notification: ${errorText}`,
+            timestamp: new Date().toISOString(),
+          };
+
+          throw Object.assign(
+            new Error(`Failed to send notification: ${errorText}`),
+            { response: errorResponse }
+          );
+        }
+
+        // Parse the response
+        let responseData: PagerNotificationResponse;
+
+        try {
+          // Try to parse the response as JSON
+          responseData = await response.json();
+        } catch (e) {
+          // If the response is not JSON, create a default success response
+          responseData = {
+            success: true,
+            timestamp: new Date().toISOString(),
+          };
         }
 
         if (resolvedConfig.debug) {
-          console.log("[Pager] Notification sent successfully");
+          console.log("[Pager] Notification sent successfully:", responseData);
         }
 
-        return;
+        return responseData;
       } catch (error) {
         console.error("[Pager] Error sending notification:", error);
-        throw error;
+
+        // If the error already has a response object (from our throw above), use it
+        if (error instanceof Error && "response" in error) {
+          return (error as any).response;
+        }
+
+        // Otherwise, create a generic error response
+        const errorResponse: PagerNotificationResponse = {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        };
+
+        throw Object.assign(
+          error instanceof Error ? error : new Error(String(error)),
+          { response: errorResponse }
+        );
       }
     };
   }, [resolvedConfig]);
