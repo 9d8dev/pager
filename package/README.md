@@ -16,11 +16,11 @@ A developer-first notification system for TypeScript applications, with first-cl
 ## Installation
 
 ```bash
-npm install pager
+pnpm add pager
 # or
 yarn add pager
 # or
-pnpm add pager
+npm install pager
 ```
 
 ## Usage
