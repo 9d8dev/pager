@@ -16,11 +16,11 @@ A developer-first notification system for TypeScript applications, with first-cl
 ## Installation
 
 ```bash
-pnpm add pager
+pnpm add pagerdev
 # or
-yarn add pager
+yarn add pagerdev
 # or
-npm install pager
+npm install pagerdev
 ```
 
 ## Usage
@@ -55,7 +55,7 @@ In your root layout:
 
 ```tsx
 // app/layout.tsx
-import { PagerProvider } from 'pager';
+import { PagerProvider } from 'pagerdev';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -77,7 +77,7 @@ In your `_app.tsx`:
 ```tsx
 // pages/_app.tsx
 import type { AppProps } from 'next/app';
-import { PagerProvider } from 'pager';
+import { PagerProvider } from 'pagerdev';
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   return (
@@ -93,7 +93,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 ```tsx
 'use client'; // If using App Router in a client component
 
-import { usePager } from 'pager';
+import { usePager } from 'pagerdev';
 
 export default function MyComponent() {
   const { page } = usePager();
@@ -115,7 +115,7 @@ export default function MyComponent() {
 You can also use the `page` function directly without the React context:
 
 ```tsx
-import { page } from 'pager';
+import { page } from 'pagerdev';
 
 // In a server action or API route (RECOMMENDED for secure usage)
 export async function handleFormSubmission(formData: FormData) {
@@ -288,7 +288,7 @@ interface PagerNotificationResponse {
 ### Cleanup Function
 
 ```tsx
-import { clearNotificationQueue } from 'pager';
+import { clearNotificationQueue } from 'pagerdev';
 
 // Call this function to clear any pending batched notifications
 // Useful when cleaning up resources or when the app is about to unload
@@ -390,7 +390,7 @@ Pager follows a security-first approach for handling authentication:
 
 ```tsx
 // app/api/notify/route.ts (Next.js App Router)
-import { page } from 'pager';
+import { page } from 'pagerdev';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -449,7 +449,3 @@ export default function NotifyButton() {
   );
 }
 ```
-
-## License
-
-ISC
