@@ -242,6 +242,16 @@ export async function page(
 
 /**
  * Process the batch of notifications
+ *
+ * This internal function handles the sending of batched notifications to the backend.
+ * It groups notifications by endpoint and API key, then sends them in a single request
+ * to reduce network overhead.
+ *
+ * The function is automatically called when the batch timeout expires or when
+ * the notification queue reaches a certain size.
+ *
+ * @param debug - Whether debug mode is enabled for verbose logging
+ * @returns A promise that resolves when all batches have been processed
  * @internal
  */
 async function processBatch(debug: boolean): Promise<void> {
@@ -478,7 +488,31 @@ async function sendNotification(
   }
 }
 
-// Clean up function to prevent memory leaks
+/**
+ * Clears the notification queue and cancels any pending batch operations
+ *
+ * This utility function is useful for cleaning up resources and preventing memory leaks.
+ * It should be called when your application is shutting down or when you want to
+ * explicitly cancel all pending notifications.
+ *
+ * All pending notifications in the queue will be resolved with an error response
+ * indicating they were cleared before sending.
+ *
+ * @example
+ * // Clean up resources when component unmounts
+ * useEffect(() => {
+ *   return () => {
+ *     clearNotificationQueue();
+ *   };
+ * }, []);
+ *
+ * @example
+ * // Cancel all pending notifications
+ * const handleCancelAll = () => {
+ *   clearNotificationQueue();
+ *   console.log('All pending notifications cancelled');
+ * };
+ */
 export function clearNotificationQueue(): void {
   if (batchTimeout) {
     clearTimeout(batchTimeout);

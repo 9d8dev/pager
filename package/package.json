@@ -1,7 +1,7 @@
 {
   "name": "pager",
   "version": "0.0.1",
-  "description": "Developer-first notification system for TypeScript applications",
+  "description": "A lightweight, developer-first notification system for TypeScript applications with first-class Next.js support. Send and manage backend notifications with batching, rate limiting, and security-first design.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -26,7 +26,17 @@
     "notifications",
     "react",
     "nextjs",
-    "typescript"
+    "typescript",
+    "alerts",
+    "backend-notifications",
+    "server-components",
+    "app-router",
+    "react-server-components",
+    "batching",
+    "rate-limiting",
+    "developer-tools",
+    "next-js",
+    "notification-system"
   ],
   "author": "9d8",
   "license": "ISC",
