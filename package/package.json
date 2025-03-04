@@ -1,0 +1,22 @@
+{
+  "name": "pager",
+  "version": "1.0.0",
+  "description": "Developer-first notification system for TypeScript applications",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/9d8dev/pager.git"
+  },
+  "keywords": [
+    "notifications"
+  ],
+  "author": "9d8",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/9d8dev/pager/issues"
+  },
+  "homepage": "https://github.com/9d8dev/pager#readme"
+}
