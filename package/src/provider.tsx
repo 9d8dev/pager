@@ -81,12 +81,171 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
         );
       }
     }
+
+    // Security warning for sensitive API keys
+    if (
+      resolvedConfig.apiKey &&
+      resolvedConfig.apiKey === process.env.NEXT_PUBLIC_PAGER_API_KEY
+    ) {
+      console.warn(
+        "[Pager] Security Warning: Using NEXT_PUBLIC_PAGER_API_KEY in browser context. " +
+          "If this is a sensitive API key, consider using server-side functions " +
+          "with non-public environment variables instead."
+      );
+    }
   }, [resolvedConfig]);
 
   // Create the page function
   const page = useMemo(() => {
     // Rate limiting state (closure-scoped)
     let lastNotificationTime = 0;
+
+    // Batching state (closure-scoped)
+    let notificationQueue: Array<{
+      payload: PagerNotificationPayload;
+      resolve: (response: PagerNotificationResponse) => void;
+      timestamp: string;
+    }> = [];
+    let batchTimeout: NodeJS.Timeout | null = null;
+
+    // Process batched notifications
+    const processBatch = async () => {
+      // Clear the timeout
+      if (batchTimeout) {
+        clearTimeout(batchTimeout);
+        batchTimeout = null;
+      }
+
+      // If queue is empty, do nothing
+      if (notificationQueue.length === 0) return;
+
+      if (resolvedConfig.debug) {
+        console.log(
+          `[Pager] Processing batch of ${notificationQueue.length} notifications`
+        );
+      }
+
+      // Copy the queue and clear it
+      const currentQueue = [...notificationQueue];
+      notificationQueue = [];
+
+      // Create a batch payload
+      const batchPayload = {
+        notifications: currentQueue.map((n) => n.payload),
+        timestamp: new Date().toISOString(),
+        batchSize: currentQueue.length,
+      };
+
+      // Make sure backendUrl is not undefined
+      const url = `${resolvedConfig.backendUrl || "/api/notifications"}/batch`;
+
+      try {
+        // Make the API call
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(resolvedConfig.apiKey && {
+              Authorization: `Bearer ${resolvedConfig.apiKey}`,
+            }),
+          },
+          body: JSON.stringify(batchPayload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response
+            .text()
+            .catch(() => response.statusText);
+
+          // Resolve all with error
+          currentQueue.forEach((notification) => {
+            notification.resolve({
+              success: false,
+              error: `Failed to send batch notification: ${errorText}`,
+              timestamp: notification.timestamp,
+            });
+          });
+
+          if (resolvedConfig.debug) {
+            console.error(`[Pager] Batch request failed: ${errorText}`);
+          }
+          return;
+        }
+
+        // Parse response
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          // If not JSON, create a default response
+          responseData = {
+            success: true,
+            timestamp: new Date().toISOString(),
+          };
+        }
+
+        // Resolve all notifications with success
+        currentQueue.forEach((notification) => {
+          notification.resolve({
+            ...responseData,
+            success: true,
+            timestamp: notification.timestamp,
+            batched: true,
+            batchSize: currentQueue.length,
+          });
+        });
+
+        if (resolvedConfig.debug) {
+          console.log(
+            `[Pager] Batch of ${currentQueue.length} notifications sent successfully`
+          );
+        }
+      } catch (error) {
+        // Handle errors
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // Resolve all with error
+        currentQueue.forEach((notification) => {
+          notification.resolve({
+            success: false,
+            error: `Failed to send batch notification: ${errorMessage}`,
+            timestamp: notification.timestamp,
+          });
+        });
+
+        if (resolvedConfig.debug) {
+          console.error(`[Pager] Error sending batch: ${errorMessage}`);
+        }
+      }
+    };
+
+    // Clean up function to prevent memory leaks
+    const clearQueue = () => {
+      if (batchTimeout) {
+        clearTimeout(batchTimeout);
+        batchTimeout = null;
+      }
+
+      // Resolve any pending notifications with an error
+      notificationQueue.forEach((notification) => {
+        notification.resolve({
+          success: false,
+          error: "Notification queue was cleared before sending",
+          timestamp: notification.timestamp,
+        });
+      });
+
+      // Clear the queue
+      notificationQueue = [];
+    };
+
+    // Register cleanup on unmount
+    useEffect(() => {
+      return () => {
+        clearQueue();
+      };
+    }, []);
 
     return async (
       message: string,
@@ -98,48 +257,77 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
       // Get throttle time with fallback to ensure it's never undefined
       const throttleMs = resolvedConfig.throttleMs || 5000;
 
-      // Rate limiting check
-      const now = Date.now();
-      const timeSinceLastCall = now - lastNotificationTime;
+      // Get batching configuration
+      const batchingEnabled =
+        resolvedConfig.batchingEnabled || options.batchingEnabled || false;
+      const batchDelayMs = resolvedConfig.batchDelayMs || 2000;
 
-      // Skip rate limiting for high priority notifications
+      // Skip rate limiting and batching for high priority notifications
       const isHighPriority = options.priority === "high";
 
       // Apply rate limiting unless this is a high priority notification
-      if (
-        !isHighPriority &&
-        lastNotificationTime > 0 &&
-        timeSinceLastCall < throttleMs
-      ) {
-        const retryAfterMs = throttleMs - timeSinceLastCall;
-        const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+      if (!isHighPriority) {
+        // Rate limiting check
+        const now = Date.now();
+        const timeSinceLastCall = now - lastNotificationTime;
 
-        if (resolvedConfig.debug) {
-          console.warn(
-            `[Pager] Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`
-          );
+        if (lastNotificationTime > 0 && timeSinceLastCall < throttleMs) {
+          const retryAfterMs = throttleMs - timeSinceLastCall;
+          const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+
+          if (resolvedConfig.debug) {
+            console.warn(
+              `[Pager] Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`
+            );
+          }
+
+          return {
+            success: false,
+            error: `Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`,
+            timestamp,
+            rateLimited: true,
+            retryAfter: retryAfterSec,
+          };
         }
+      }
 
-        return {
-          success: false,
-          error: `Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`,
-          timestamp,
-          rateLimited: true,
-          retryAfter: retryAfterSec,
-        };
+      // Prepare the payload
+      const payload: PagerNotificationPayload = {
+        message,
+        ...options,
+        timestamp,
+      };
+
+      // If batching is enabled and this is not a high priority notification
+      if (batchingEnabled && !isHighPriority) {
+        return new Promise((resolve) => {
+          // Create a notification object with its resolver
+          const notification = {
+            payload,
+            resolve,
+            timestamp,
+          };
+
+          // Add to queue
+          notificationQueue.push(notification);
+
+          if (resolvedConfig.debug) {
+            console.log(
+              `[Pager] Added notification to batch queue. Queue size: ${notificationQueue.length}`
+            );
+          }
+
+          // If no timeout is active, create one
+          if (!batchTimeout) {
+            batchTimeout = setTimeout(() => processBatch(), batchDelayMs);
+          }
+        });
       }
 
       try {
         if (resolvedConfig.debug) {
           console.log("[Pager] Sending notification:", message, options);
         }
-
-        // Prepare the payload
-        const payload: PagerNotificationPayload = {
-          message,
-          ...options,
-          timestamp,
-        };
 
         // Make sure backendUrl is not undefined
         const url = resolvedConfig.backendUrl || "/api/notifications";
