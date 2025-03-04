@@ -2,7 +2,7 @@
   "name": "pager",
   "version": "1.0.0",
   "description": "Developer-first notification system for TypeScript applications",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -18,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/9d8dev/pager/issues"
   },
-  "homepage": "https://github.com/9d8dev/pager#readme"
+  "homepage": "https://github.com/9d8dev/pager#readme",
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
 }
