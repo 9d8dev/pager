@@ -9,6 +9,7 @@ A developer-first notification system for TypeScript applications, with first-cl
 - **Next.js compatible**: Works with both App Router and Pages Router
 - **Flexible**: Use with React context or as a standalone function
 - **Environment-aware**: Configure via props or environment variables
+- **Rate limited**: Built-in protection against notification spam
 
 ## Installation
 
@@ -156,7 +157,8 @@ PAGER_DEBUG=false
 <PagerProvider config={{
   apiKey: 'your-api-key', // Overrides NEXT_PUBLIC_PAGER_API_KEY
   backendUrl: 'https://custom-endpoint.com/api', // Overrides NEXT_PUBLIC_PAGER_BACKEND_URL
-  debug: true // Overrides NEXT_PUBLIC_PAGER_DEBUG
+  debug: true, // Overrides NEXT_PUBLIC_PAGER_DEBUG
+  throttleMs: 10000 // Rate limiting: 10 seconds between notifications (default: 5000ms)
 }}>
   {children}
 </PagerProvider>
@@ -169,7 +171,8 @@ PAGER_DEBUG=false
 await page('Message', {
   apiKey: 'your-api-key',
   backendUrl: 'https://custom-endpoint.com/api',
-  debug: true
+  debug: true,
+  throttleMs: 10000 // Rate limiting: 10 seconds between notifications
 });
 
 // With just priority
@@ -185,6 +188,7 @@ Pager is designed to be as lightweight as possible:
 - **Minimal Side Effects**: Only performs API calls when explicitly triggered
 - **Flexible Usage**: Works both within React components and in server-side code
 - **Environment-Aware**: Automatically uses the appropriate environment variables based on context
+- **Rate Limited**: Prevents notification spam with configurable throttling
 
 ## API Reference
 
@@ -195,6 +199,7 @@ Pager is designed to be as lightweight as possible:
   apiKey?: string;
   backendUrl?: string;
   debug?: boolean;
+  throttleMs?: number; // Default: 5000 (5 seconds)
 }>
 ```
 
@@ -204,7 +209,12 @@ Pager is designed to be as lightweight as possible:
 const { page, config } = usePager();
 
 // page function
-page(message: string, options?: { priority?: 'low' | 'medium' | 'high' }): Promise<void>
+page(message: string, options?: {
+  priority?: 'low' | 'medium' | 'high';
+  category?: string;
+  tags?: string[];
+  metadata?: Record<string, any>;
+}): Promise<PagerNotificationResponse>
 ```
 
 ### Standalone page function
@@ -217,15 +227,64 @@ page(
     apiKey?: string;
     backendUrl?: string;
     debug?: boolean;
-  } | { priority?: 'low' | 'medium' | 'high' },
-  options?: { priority?: 'low' | 'medium' | 'high' }
-): Promise<void>
+    throttleMs?: number; // Default: 5000 (5 seconds)
+  } | {
+    priority?: 'low' | 'medium' | 'high';
+    category?: string;
+    tags?: string[];
+    metadata?: Record<string, any>;
+  },
+  options?: {
+    priority?: 'low' | 'medium' | 'high';
+    category?: string;
+    tags?: string[];
+    metadata?: Record<string, any>;
+  }
+): Promise<PagerNotificationResponse>
 
 // Examples
 await page('Simple message');
 await page('With priority', { priority: 'high' });
 await page('With config', { apiKey: 'custom-key', backendUrl: 'custom-url' });
 await page('With both', { apiKey: 'custom-key' }, { priority: 'high' });
+```
+
+### Response Object
+
+The `page` function returns a promise that resolves to a response object:
+
+```tsx
+interface PagerNotificationResponse {
+  success: boolean;
+  id?: string;           // Present on successful notifications
+  error?: string;        // Present on failed notifications
+  timestamp?: string;    // ISO timestamp
+  rateLimited?: boolean; // True if the notification was rate limited
+  retryAfter?: number;   // Seconds to wait before retrying (if rate limited)
+}
+```
+
+### Rate Limiting
+
+Pager includes built-in rate limiting to prevent accidental notification spam:
+
+- By default, notifications are limited to one every 5 seconds
+- High priority notifications (`priority: 'high'`) bypass rate limiting
+- Rate limiting can be configured via the `throttleMs` option
+- When rate limited, the function returns a response with `success: false` and `rateLimited: true`
+
+Example handling rate limiting:
+
+```tsx
+const response = await page('Test notification');
+
+if (response.success) {
+  console.log('Notification sent successfully!');
+} else if (response.rateLimited) {
+  console.warn(`Rate limited. Try again in ${response.retryAfter} seconds.`);
+} else {
+  console.error('Failed to send notification:', response.error);
+}
 ```
 
 ## License

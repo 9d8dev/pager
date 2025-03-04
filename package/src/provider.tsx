@@ -56,8 +56,9 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
         "/api/notifications",
       debug:
         config.debug || process.env.NEXT_PUBLIC_PAGER_DEBUG === "true" || false,
+      throttleMs: config.throttleMs || 5000, // 5 seconds default throttle
     };
-  }, [config.apiKey, config.backendUrl, config.debug]);
+  }, [config.apiKey, config.backendUrl, config.debug, config.throttleMs]);
 
   // Validate configuration on mount - only runs once and only in debug mode
   useEffect(() => {
@@ -84,12 +85,49 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
 
   // Create the page function
   const page = useMemo(() => {
+    // Rate limiting state (closure-scoped)
+    let lastNotificationTime = 0;
+
     return async (
       message: string,
       options: PagerNotificationOptions = {}
     ): Promise<PagerNotificationResponse> => {
       // Create a timestamp for this notification attempt
       const timestamp = new Date().toISOString();
+
+      // Get throttle time with fallback to ensure it's never undefined
+      const throttleMs = resolvedConfig.throttleMs || 5000;
+
+      // Rate limiting check
+      const now = Date.now();
+      const timeSinceLastCall = now - lastNotificationTime;
+
+      // Skip rate limiting for high priority notifications
+      const isHighPriority = options.priority === "high";
+
+      // Apply rate limiting unless this is a high priority notification
+      if (
+        !isHighPriority &&
+        lastNotificationTime > 0 &&
+        timeSinceLastCall < throttleMs
+      ) {
+        const retryAfterMs = throttleMs - timeSinceLastCall;
+        const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+
+        if (resolvedConfig.debug) {
+          console.warn(
+            `[Pager] Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`
+          );
+        }
+
+        return {
+          success: false,
+          error: `Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`,
+          timestamp,
+          rateLimited: true,
+          retryAfter: retryAfterSec,
+        };
+      }
 
       try {
         if (resolvedConfig.debug) {
@@ -125,6 +163,9 @@ export function PagerProvider({ children, config = {} }: PagerProviderProps) {
           });
 
           clearTimeout(timeoutId);
+
+          // Update the last notification time for rate limiting
+          lastNotificationTime = Date.now();
 
           // Handle errors
           if (!response.ok) {

@@ -23,6 +23,14 @@ export interface PagerConfig {
    * @default false
    */
   debug?: boolean;
+
+  /**
+   * Throttle time in milliseconds between notifications
+   * Used for rate limiting to prevent spamming the backend
+   * High priority notifications bypass this limit
+   * @default 5000 (5 seconds)
+   */
+  throttleMs?: number;
 }
 
 /**
@@ -109,4 +117,14 @@ export interface PagerNotificationResponse {
    * Timestamp when the notification was processed
    */
   timestamp?: string;
+
+  /**
+   * Whether the notification was rate limited
+   */
+  rateLimited?: boolean;
+
+  /**
+   * Number of seconds to wait before retrying (if rate limited)
+   */
+  retryAfter?: number;
 }

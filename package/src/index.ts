@@ -16,6 +16,10 @@ try {
   // Running in browser, dotenv not needed
 }
 
+// Rate limiting state (module-level)
+let lastNotificationTime = 0;
+const DEFAULT_THROTTLE_MS = 5000; // 5 seconds between notifications by default
+
 /**
  * Send a notification message to the configured backend service
  *
@@ -57,6 +61,14 @@ try {
  *   // This will only happen for network failures or other critical errors
  *   console.error('Critical error sending notification:', error);
  * }
+ *
+ * // Rate limiting
+ * // The page function is throttled by default (one notification per 5 seconds)
+ * // Rapid calls will return a rate-limited response rather than sending multiple notifications
+ * const response1 = await page('First notification');  // Sent immediately
+ * const response2 = await page('Second notification'); // Rate limited if within 5 seconds
+ * console.log(response2.success); // false if rate limited
+ * console.log(response2.error);   // Contains rate limiting information
  */
 export async function page(
   message: string,
@@ -104,8 +116,42 @@ export async function page(
     process.env.PAGER_DEBUG === "true" ||
     false;
 
+  // Get throttle time from config or use default
+  const throttleMs = config?.throttleMs || DEFAULT_THROTTLE_MS;
+
   // Create a timestamp for this notification attempt
   const timestamp = new Date().toISOString();
+
+  // Rate limiting check
+  const now = Date.now();
+  const timeSinceLastCall = now - lastNotificationTime;
+
+  // Skip rate limiting for high priority notifications
+  const isHighPriority = notificationOptions.priority === "high";
+
+  // Apply rate limiting unless this is a high priority notification
+  if (
+    !isHighPriority &&
+    lastNotificationTime > 0 &&
+    timeSinceLastCall < throttleMs
+  ) {
+    const retryAfterMs = throttleMs - timeSinceLastCall;
+    const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+
+    if (debug) {
+      console.warn(
+        `[Pager] Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`
+      );
+    }
+
+    return {
+      success: false,
+      error: `Rate limited: Too many notifications. Try again in ${retryAfterSec} seconds.`,
+      timestamp,
+      rateLimited: true,
+      retryAfter: retryAfterSec,
+    };
+  }
 
   try {
     // Debug logging if enabled
@@ -141,6 +187,9 @@ export async function page(
       });
 
       clearTimeout(timeoutId);
+
+      // Update the last notification time for rate limiting
+      lastNotificationTime = Date.now();
 
       // Handle errors
       if (!response.ok) {
