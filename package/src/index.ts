@@ -1,55 +1,43 @@
-type BaseOptions = {
+type PagerNotificationOptions = {
   notif?: boolean;
-  discord?: boolean;
-  email?: boolean;
+  slack?: string;
+  discord?: string;
+  email?: string;
 };
-
-type SlackEnabled = {
-  slack: true;
-  slackWebhook: string;
-};
-
-type SlackDisabled = {
-  slack?: false;
-  slackWebhook?: never;
-};
-
-type DiscordEnabled = {
-  discord: true;
-  discordWebhook: string;
-};
-
-type DiscordDisabled = {
-  discord?: false;
-  discordWebhook?: never;
-};
-
-type EmailEnabled = {
-  email: true;
-  emailAddress: string;
-};
-
-type EmailDisabled = {
-  email?: false;
-  emailAddress?: never;
-};
-
-type PagerNotificationOptions = BaseOptions &
-  (SlackEnabled | SlackDisabled) &
-  (DiscordEnabled | DiscordDisabled) &
-  (EmailEnabled | EmailDisabled);
 
 export async function page(
   message: string,
   options: PagerNotificationOptions = {}
 ) {
+  if (message.length > 256) {
+    throw new Error("Message length cannot exceed 256 characters.");
+  }
+
   const defaultOptions = {
     ...options,
     notif: options.notif ?? true,
-    discord: options.discord ?? true,
-    email: options.email ?? true,
-    slack: options.slack ?? true,
+    discord: options.discord ?? undefined,
+    email: options.email ?? undefined,
+    slack: options.slack ?? undefined,
   };
 
-  // ... rest of the function implementation
+  const environmentVariable = process.env.PAGER_DEV_API_KEY;
+
+  if (!environmentVariable) {
+    throw new Error(
+      "PAGER_DEV_API_KEY is not set. Please set it in your environment variables."
+    );
+  }
+
+  await fetch("https://pager.dev/api/v1", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${environmentVariable}`,
+    },
+    body: JSON.stringify({
+      message,
+      ...defaultOptions,
+    }),
+  });
 }
