@@ -8,6 +8,13 @@
       "when": 1741666101002,
       "tag": "0000_eminent_roughhouse",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1741670413145,
+      "tag": "0001_crazy_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import {
   integer,
   timestamp,
   boolean,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -54,4 +55,33 @@ export const verification = pgTable("verification", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at"),
   updatedAt: timestamp("updated_at"),
+});
+
+export const pager = pgTable("pager", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  token: text("token").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+});
+
+export const page = pgTable("page", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  message: text("message").notNull(),
+  notif: boolean("notif").notNull(),
+  discord: boolean("discord").notNull(),
+  email: boolean("email").notNull(),
+  slack: boolean("slack").notNull(),
+  pagerId: uuid("pager_id")
+    .notNull()
+    .references(() => pager.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
 });
