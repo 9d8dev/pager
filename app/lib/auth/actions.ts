@@ -2,7 +2,11 @@
 
 import { z } from "zod";
 import { actionClient } from "@/lib/data/safe";
-import { signIn as signInFunc, signUp as signUpFunc } from "@/lib/auth/server";
+import {
+  signIn as signInFunc,
+  signUp as signUpFunc,
+  signOut as signOutFunc,
+} from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@/lib/data/validations";
 
@@ -11,7 +15,7 @@ export const signIn = actionClient
   .action(async ({ parsedInput }) => {
     const { email, password } = parsedInput;
     await signInFunc(email, password);
-    redirect("/dashboard");
+    redirect("/");
   });
 
 export const signUp = actionClient
@@ -19,5 +23,11 @@ export const signUp = actionClient
   .action(async ({ parsedInput }) => {
     const { name, email, password } = parsedInput;
     await signUpFunc(name, email, password);
-    redirect("/dashboard");
+    await signInFunc(email, password);
+    redirect("/");
   });
+
+export const signOut = actionClient.action(async () => {
+  await signOutFunc();
+  redirect("/");
+});

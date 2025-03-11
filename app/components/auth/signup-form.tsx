@@ -24,7 +24,7 @@ import { toast } from "sonner";
 
 import { useAction } from "next-safe-action/hooks";
 import { parseActionError } from "@/lib/data/safe";
-import { signIn } from "@/lib/auth/actions";
+import { signUp } from "@/lib/auth/actions";
 
 type values = z.infer<typeof formSchema>;
 
@@ -35,7 +35,7 @@ const defaultValues: Partial<values> = {
 };
 
 export function SignUpForm() {
-  const { execute, isExecuting } = useAction(signIn, {
+  const { execute, isExecuting } = useAction(signUp, {
     onSuccess() {
       toast.success("Signed up successfully.");
     },
@@ -95,7 +95,7 @@ export function SignUpForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="********" {...field} />
+                <Input placeholder="********" {...field} type="password" />
               </FormControl>
               <FormDescription className="sr-only">
                 Enter your password
@@ -105,7 +105,7 @@ export function SignUpForm() {
           )}
         />
         <Button type="submit" disabled={isExecuting}>
-          Sign in
+          Sign up
         </Button>
       </form>
     </Form>
