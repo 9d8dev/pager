@@ -1,9 +1,15 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { auth } from "./";
 import { headers, cookies } from "next/headers";
 
+// NOTE: refer to actions for auth actions
+// this file contains primitive functions for auth
+
+/**
+ * Get session function
+ *
+ */
 export const getSession = async () => {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -11,6 +17,10 @@ export const getSession = async () => {
   return session;
 };
 
+/**
+ * Sign in function
+ *
+ */
 export const signIn = async (email: string, password: string) => {
   const response = await auth.api.signInEmail({
     body: {
@@ -22,12 +32,20 @@ export const signIn = async (email: string, password: string) => {
   return response;
 };
 
+/**
+ * Sign out function
+ *
+ */
 export const signOut = async () => {
   const allCookies = await cookies();
   allCookies.delete("better-auth.session_token");
   allCookies.delete("better-auth.session_data");
 };
 
+/**
+ * Sign up function
+ *
+ */
 export const signUp = async (name: string, email: string, password: string) => {
   const response = await auth.api.signUpEmail({
     body: {
