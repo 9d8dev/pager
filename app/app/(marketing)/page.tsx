@@ -1,11 +1,11 @@
-import Link from "next/link";
-import Image from "next/image";
-import Logo from "@/public/logo.svg";
 import Logo2 from "@/public/logo-2.svg";
+import Logo from "@/public/logo.svg";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="w-screen h-screen bg-background flex items-center justify-center">
+    <main className="w-screen h-screen flex items-center justify-center">
       <section className="space-y-12 text-center uppercase font-mono">
         <h1 className="sr-only">Pager</h1>
 
