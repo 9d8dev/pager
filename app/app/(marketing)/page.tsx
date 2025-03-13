@@ -12,13 +12,16 @@ export default function Home() {
   return (
     <main>
       <Hero />
+      <section className="p-12">
+        <h3>What is pager?</h3>
+      </section>
     </main>
   );
 }
 
 const Hero = () => {
   return (
-    <section className="w-screen h-screen relative text-center uppercase font-mono">
+    <section className="w-screen h-screen relative text-center uppercase font-mono border-b">
       <div className="absolute top-6 left-6 space-y-4">
         <h1 className="sr-only">Pager</h1>
         <Image src={Logo} alt="Logo" width={180} className="dark:hidden" />
