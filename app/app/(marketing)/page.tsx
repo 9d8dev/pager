@@ -19,7 +19,7 @@ export default function Home() {
 const Hero = () => {
   return (
     <section className="w-screen h-screen relative text-center uppercase font-mono">
-      <div className="absolute top-6 left-6">
+      <div className="absolute top-6 left-6 space-y-4">
         <h1 className="sr-only">Pager</h1>
         <Image src={Logo} alt="Logo" width={180} className="dark:hidden" />
         <Image
@@ -28,15 +28,15 @@ const Hero = () => {
           width={180}
           className="hidden dark:block"
         />
+        <h2>Notifications for developers</h2>
       </div>
-      <Button asChild>
-        <Link
-          href="/dashboard"
-          className="hover:font-semibold absolute top-6 right-6"
-        >
-          Go to app
-        </Link>
-      </Button>
+      <div className="absolute top-6 right-6">
+        <Button asChild>
+          <Link href="/dashboard" className="hover:font-semibold">
+            Go to app
+          </Link>
+        </Button>
+      </div>
       <p className="absolute bottom-6 left-6 flex items-center gap-2">
         Learn More <ArrowDown size={16} />
       </p>
