@@ -3,6 +3,7 @@ import { pager } from "@/lib/db/schema";
 import { randomBytes } from "crypto";
 import { getSession } from "@/lib/auth/server";
 import { eq } from "drizzle-orm";
+
 export const createPager = async (userId: string) => {
   await db.insert(pager).values({
     userId,

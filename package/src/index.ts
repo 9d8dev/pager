@@ -1,8 +1,22 @@
+/**
+ * usage
+ * 
+ * 
+ * import { page } from "pagerdev";
+ * 
+ * await page("new subscriber on router", {
+ *  slack: "https://slack.com/webhook",
+ *  email: "test@test.com",
+ * })
+ * 
+ */
+
 type PagerNotificationOptions = {
   notif?: boolean;
   slack?: string;
   discord?: string;
   email?: string;
+  webhook?: string;
 };
 
 export async function page(
@@ -19,6 +33,7 @@ export async function page(
     discord: options.discord ?? undefined,
     email: options.email ?? undefined,
     slack: options.slack ?? undefined,
+    webhook: options.webhook ?? undefined,
   };
 
   const environmentVariable = process.env.PAGER_DEV_API_KEY;
@@ -29,6 +44,7 @@ export async function page(
     );
   }
 
+  // TODO: use axios
   await fetch("https://pager.dev/api/v1", {
     method: "POST",
     headers: {
