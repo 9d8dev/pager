@@ -9,9 +9,11 @@ export default async function Login() {
   }
 
   return (
-    <main>
-      <h1>Login</h1>
-      <LoginForm />
+    <main className="h-screen w-screen flex items-center justify-center">
+      <section className="border p-6">
+        <h1>Login</h1>
+        <LoginForm />
+      </section>
     </main>
   );
 }

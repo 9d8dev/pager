@@ -1,12 +1,11 @@
 import Pager from "@/public/pager.webp";
-import Logo2 from "@/public/logo-2.svg";
-import Logo from "@/public/logo.svg";
 import Image from "next/image";
 import Link from "next/link";
 
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/globals/logo";
 
 export default function Home() {
   return (
@@ -24,13 +23,7 @@ const Hero = () => {
     <section className="w-screen h-screen relative text-center uppercase font-mono border-b">
       <div className="absolute top-6 left-6 space-y-4">
         <h1 className="sr-only">Pager</h1>
-        <Image src={Logo} alt="Logo" width={180} className="dark:hidden" />
-        <Image
-          src={Logo2}
-          alt="Logo"
-          width={180}
-          className="hidden dark:block"
-        />
+        <Logo />
         <h2>Notifications for developers</h2>
       </div>
       <div className="absolute top-6 right-6">
