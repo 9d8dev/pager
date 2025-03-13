@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 export default function Home() {
   return (
     <main className="w-screen h-screen relative">
-      <section className="space-y-12 text-center uppercase font-mono">
+      <section className="text-center uppercase font-mono">
         <div className="absolute top-6 left-6">
           <h1 className="sr-only">Pager</h1>
           <Image src={Logo} alt="Logo" width={180} className="dark:hidden" />
@@ -21,12 +21,14 @@ export default function Home() {
           />
         </div>
 
-        <div className="flex gap-6 items-center justify-center absolute bottom-6 left-6">
-          <Link href="/dashboard" className="hover:font-semibold">
-            go to app
-          </Link>
-          <ThemeToggle />
-        </div>
+        <Link
+          href="/dashboard"
+          className="hover:font-semibold absolute bottom-6 left-6"
+        >
+          Go to app
+        </Link>
+
+        <ThemeToggle className="absolute bottom-6 right-6" />
       </section>
 
       <Image
