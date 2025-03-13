@@ -76,12 +76,19 @@ export const page = pgTable("page", {
     .$defaultFn(() => crypto.randomUUID()),
   message: text("message").notNull(),
   notif: boolean("notif").notNull(),
-  discord: boolean("discord").notNull(),
-  email: boolean("email").notNull(),
-  slack: boolean("slack").notNull(),
+  discord: text("discord"),
+  email: text("email"),
+  slack: text("slack"),
+  webhook: text("webhook"),
   pagerId: uuid("pager_id")
     .notNull()
     .references(() => pager.id, { onDelete: "cascade" }),
+  // metadata
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  referer: text("referer"),
+  origin: text("origin"),
+  host: text("host"),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });

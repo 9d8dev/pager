@@ -15,6 +15,20 @@
       "when": 1741670413145,
       "tag": "0001_crazy_lucky_pierre",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1741820703381,
+      "tag": "0002_even_toro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1741821465758,
+      "tag": "0003_warm_crystal",
+      "breakpoints": true
     }
   ]
 }
